@@ -1,0 +1,313 @@
+---
+title: "NYC311 Customer Service Analysis R"
+author: "Malay Raj"
+date: "2023-06-12"
+output:
+  html_document: default
+  word_document: default
+---
+
+## NYC 311 CUSTOMER SERVICE REPORT ANALYSIS.
+
+Problem Objective :
+
+Perform a service request data analysis of New York City 311 calls. You will focus on the data wrangling techniques to understand the pattern in the data and also visualize the major complaint types.
+
+For this analysis I haven't included the null values.
+
+Domain: Customer Service
+
+## Loading Required Packages.
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(dplyr)
+library(ggplot2)
+library(skimr)
+library(plyr)
+library(lubridate)
+library(scales)
+```
+
+
+## Displaying my current working directory.
+
+```{r}
+getwd()
+```
+
+
+## Collecting the data.
+
+```{r}
+NYC = read.csv("C:/Users/KIIT/OneDrive/Desktop/Bellabeat/NYC Customer Service Requests Analysis/NYC311data.csv")
+```
+
+## Displaying the first six rows of the dataset.
+
+```{r}
+head(NYC)
+```
+
+
+## Checking the number of rows and dimension of the dataset.
+
+```{r}
+nrow(NYC)
+
+dim(NYC)
+```
+
+
+## Renaming few columns which we further need in analysis.
+
+```{r}
+NYC=plyr::rename(NYC, replace=c("Unique.Key" = "Unique_key",
+                                "Created.Date" = "Created_date",
+                                "Closed.Date" = "Closed_date",
+                                "Location.Type" = "Location_type",
+                                "Incident.Zip" = "Incident_zip",
+                                "Complaint.Type" = "Complaint_type",
+                                "Resolution.Action.Updated.Date" = "Updated_closed_date",
+                                "Incident.Address" = "Incident_address",
+                                "Address.Type" = "Address_type", 
+                                "Due.Date" = "Due_date",
+                                "Community.Board" = "Community_board",
+                                "X.Coordinate..State.Plane." = "X_coordinate", 
+                                "Y.Coordinate..State.Plane." = "Y_coordinate"))
+```
+
+
+## Viewing the new column names.
+
+```{r}
+colnames(NYC)
+```
+
+
+## Inspecting the dataframe and look for inconguencies.
+
+```{r}
+str(NYC)
+```
+
+
+## Changing datatypes of Created_date, Closed_date, Updated_closed_date and Due_date. All in one single format.
+
+```{r}
+NYC$Created_date <- as.POSIXct(NYC$Created_date, format = "%m/%d/%Y %I:%M:%S %p")
+NYC$Closed_date <- as.POSIXct(NYC$Closed_date, format = "%m-%d-%y %H:%M")
+NYC$Updated_closed_date <- as.POSIXct(NYC$Updated_closed_date, format = "%m-%d-%y %H:%M")
+NYC$Due_date <- as.POSIXct(NYC$Due_date, format = "%m-%d-%y %H:%M")
+```
+
+
+## Checking if they are changed or not.
+
+```{r}
+str(NYC)
+```
+
+
+## Dropping few columns because we don't need them in our further analysis.
+
+```{r}
+NYC = subset(NYC, select = -c(Agency, Closed_date, Agency.Name, Street.Name, Cross.Street.1, Cross.Street.2, Intersection.Street.1, Intersection.Street.2, Landmark, Facility.Type, Status, Resolution.Description, Park.Borough, Park.Facility.Name, School.Name, Incident_zip, Incident_address, School.Number, School.State, School.Region, School.Code, School.Phone.Number, School.Address, School.City, School.Zip, School.Not.Found, School.or.Citywide.Complaint, Vehicle.Type, Taxi.Company.Borough, Taxi.Pick.Up.Location, Bridge.Highway.Name, Bridge.Highway.Direction, Road.Ramp, Bridge.Highway.Segment, Garage.Lot.Name, Ferry.Direction, Ferry.Terminal.Name, Location))
+```
+
+
+## Checking the column names which are left for analysis.
+
+```{r}
+colnames(NYC)
+```
+
+
+## Creating a new column request_closing_time with the difference of Updated_closed_date and Created_date.
+
+```{r}
+NYC$request_closing_time <- difftime(NYC$Updated_closed_date,NYC$Created_date)
+```
+
+
+## Changing the datatype of the new column 'request_closing_time' to numeric.
+
+```{r}
+NYC$request_closing_time <- as.numeric(NYC$request_closing_time)
+```
+
+
+## Checking the final dimensions which we need in analysis.
+
+```{r}
+dim(NYC)
+```
+
+## Checking for duplicate values in our dataframe.
+
+```{r}
+anyDuplicated(NYC)
+```
+
+
+## Checking for null values in our dataset.
+
+```{r}
+sum(is.na(NYC))
+```
+
+
+## Dropping all the null values.
+
+```{r}
+NYC <- NYC[complete.cases(NYC), ]
+```
+
+
+## Checking the current dimensions after dropping all the null values.
+
+```{r}
+dim(NYC)
+```
+
+
+## Seeing how many observations fall under each of these columns.
+
+```{r}
+table(NYC$Complaint_type)
+table(NYC$Descriptor)
+table(NYC$Location_type)
+table(NYC$Address_type)
+table(NYC$Community_board)
+table(NYC$Borough)
+```
+
+
+## CONDUCTNG DESCRIPTIVE ANALYSIS:
+
+Descriptive analysis on whole NYC dataframe at once.
+
+```{r}
+summary(NYC)
+```
+
+
+## SUMMARY STATISTICS.
+
+```{r}
+skimr::skim_without_charts(NYC)
+```
+
+
+## DATA VISUALIZATION:
+
+Checking the complaint types of each city.
+
+```{r}
+ggplot(NYC) + 
+  geom_col(mapping = aes(x=City, y=Complaint_type, fill=Complaint_type)) +
+  theme(legend.key.size = unit(0.3, "cm")) +
+  labs(title="Complains VS City")
+```
+
+
+Checking for the location type where most of the complains come.
+
+```{r}
+ggplot(NYC, aes(Location_type, fill = Location_type)) +
+  geom_bar() +
+  theme(legend.key.size = unit(0.3, "cm")) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+
+## As we saw from the first visualization the most of the complains are from 'Brooklyn' city.
+
+Let's check which type of complains comes most from that city.
+
+```{r}
+NYC %>%
+  filter(City == 'BROOKLYN') %>%
+  ggplot(aes(x = Complaint_type, fill = Complaint_type)) +
+  geom_bar() +
+  scale_fill_viridis_d(option = "plasma", guide = "legend") +
+  theme(legend.text = element_text(size = 7),
+        legend.title = element_text(size = 9),
+        legend.key.size = unit(0.3, "cm"))
+```
+
+
+Checking if average of request closing time is related to Boroughs or not.
+
+
+```{r}
+ggplot(NYC, aes(x = Borough, y = request_closing_time, fill = Borough)) +
+  geom_bar(stat = 'identity') +
+  labs(title = 'Average Request Closing Time for Boroughs') +
+  theme_bw() + 
+  scale_y_continuous(labels = scales::comma)
+```
+
+
+## Checking whether the response time across complaint types is similar or not.
+
+```{r}
+ggplot(NYC, aes(x = Complaint_type, y = request_closing_time)) +
+  geom_bar(stat = 'identity') +
+  labs(title = 'Request Closing Time by Complaint Type') +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+
+Also checking for the average of response time across complaint types is similar or not.
+
+```{r}
+avg_request_closing_time <- aggregate(request_closing_time ~ Complaint_type, data = NYC, FUN = mean)
+ggplot(avg_request_closing_time, aes(x = Complaint_type, y = request_closing_time)) +
+  geom_point(color = "blue") +
+  geom_line(color = "blue", group = 1) +
+  labs(title = 'Average Request Closing Time by Complaint Type', x = 'Complaint_type', y = 'Avg_request_closing_time') +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+
+## Checking whether the average response time across descriptor is similar or not.
+
+```{r}
+ggplot(NYC, aes(x = Descriptor, y = request_closing_time)) +
+  geom_bar(stat = 'identity') + 
+  labs(title = 'Request Closing Time by Descriptor') +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+
+Also checking for the average of response time across descriptor is similar or not.
+
+```{r}
+avg_request_closing_time <- aggregate(request_closing_time ~ Descriptor, data = NYC, FUN = mean)
+ggplot(avg_request_closing_time, aes(x = Descriptor, y = request_closing_time)) +
+  geom_point(color = "blue") +
+  geom_line(color = "blue", group = 1) +
+  labs(title = 'Average Request Closing Time by Complaint Type', x = 'Descriptor', y = 'Avg_request_closing_time') +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+
+## Checking the relation of average request_closing_time with different locations.
+
+```{r}
+avg_request_time <- aggregate(request_closing_time ~ Location_type, data = NYC, FUN = mean)
+ggplot(avg_request_time, aes(x = Location_type, y = request_closing_time)) +
+  geom_point(color = "blue") +
+  geom_line(color = "blue", group = 1) +
+  geom_text(aes(label = round(request_closing_time)), vjust = -0.5, color = "black") +
+  labs(title = "Average Request Closing Time by Location Type",
+       x = "Location_type", y = "Avg_request_closing_time") +
+  theme_bw() +
+  theme(plot.title = element_text(size = 14),
+        axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
